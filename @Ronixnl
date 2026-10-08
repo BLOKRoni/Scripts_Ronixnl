@@ -1,0 +1,309 @@
+-- Muscle Legends Full Script
+-- Coloque no executor e execute
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualUser = game:GetService("VirtualUser")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- Variáveis de controle
+local AutoFarm = false
+local AutoRebirth = false
+local AutoSell = false
+local KillAura = false
+local SpeedEnabled = false
+local FlyEnabled = false
+local NoClip = false
+
+local SpeedValue = 50
+local FlySpeed = 50
+
+-- Anti AFK
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- Função de Teleporte
+local function Teleport(pos)
+    if HumanoidRootPart then
+        HumanoidRootPart.CFrame = CFrame.new(pos)
+    end
+end
+
+-- Auto Farm (treino)
+local function StartAutoFarm()
+    spawn(function()
+        while AutoFarm do
+            pcall(function()
+                -- Tenta clicar no botão de treino (método comum)
+                local args = {
+                    [1] = "Weight"
+                }
+                ReplicatedStorage.Remotes.Train:FireServer(unpack(args))
+                
+                -- Alternativa caso o remote seja diferente
+                -- ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("Train"):FireServer()
+            end)
+            wait(0.1)
+        end
+    end)
+end
+
+-- Auto Rebirth
+local function StartAutoRebirth()
+    spawn(function()
+        while AutoRebirth do
+            pcall(function()
+                ReplicatedStorage.Remotes.Rebirth:FireServer()
+            end)
+            wait(1)
+        end
+    end)
+end
+
+-- Auto Sell
+local function StartAutoSell()
+    spawn(function()
+        while AutoSell do
+            pcall(function()
+                ReplicatedStorage.Remotes.Sell:FireServer()
+            end)
+            wait(2)
+        end
+    end)
+end
+
+-- Kill Aura
+local function StartKillAura()
+    spawn(function()
+        while KillAura do
+            pcall(function()
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player \~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        local distance = (HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                        if distance < 20 then
+                            -- Tenta atacar (método genérico)
+                            ReplicatedStorage.Remotes.Attack:FireServer(player.Character)
+                        end
+                    end
+                end
+            end)
+            wait(0.2)
+        end
+    end)
+end
+
+-- Speed
+local function ToggleSpeed(state)
+    if state then
+        Humanoid.WalkSpeed = SpeedValue
+    else
+        Humanoid.WalkSpeed = 16
+    end
+end
+
+-- Fly
+local BodyVelocity
+local function ToggleFly(state)
+    if state then
+        BodyVelocity = Instance.new("BodyVelocity")
+        BodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        BodyVelocity.Parent = HumanoidRootPart
+        
+        spawn(function()
+            while FlyEnabled and BodyVelocity do
+                local cam = workspace.CurrentCamera
+                local move = Vector3.new()
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                    move = move + cam.CFrame.LookVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                    move = move - cam.CFrame.LookVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                    move = move - cam.CFrame.RightVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                    move = move + cam.CFrame.RightVector
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                    move = move + Vector3.new(0, 1, 0)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                    move = move - Vector3.new(0, 1, 0)
+                end
+                
+                BodyVelocity.Velocity = move * FlySpeed
+                wait()
+            end
+        end)
+    else
+        if BodyVelocity then
+            BodyVelocity:Destroy()
+            BodyVelocity = nil
+        end
+    end
+end
+
+-- NoClip
+local function ToggleNoClip(state)
+    spawn(function()
+        while NoClip do
+            for _, part in pairs(Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+            wait()
+        end
+        -- Restaura colisão quando desliga
+        for _, part in pairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+    end)
+end
+
+-- Criação da GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MuscleLegendsScript"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.ResetOnSpawn = false
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 280, 0, 420)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -210)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+Title.Text = "Muscle Legends Script"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 16
+Title.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = Title
+
+-- Função para criar botões
+local function CreateToggle(name, yPos, callback)
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0.9, 0, 0, 32)
+    Button.Position = UDim2.new(0.05, 0, 0, yPos)
+    Button.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    Button.Text = name .. ": OFF"
+    Button.TextColor3 = Color3.fromRGB(255, 100, 100)
+    Button.Font = Enum.Font.Gotham
+    Button.TextSize = 14
+    Button.Parent = MainFrame
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 6)
+    Corner.Parent = Button
+    
+    local enabled = false
+    Button.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        if enabled then
+            Button.Text = name .. ": ON"
+            Button.TextColor3 = Color3.fromRGB(100, 255, 100)
+            Button.BackgroundColor3 = Color3.fromRGB(40, 80, 40)
+        else
+            Button.Text = name .. ": OFF"
+            Button.TextColor3 = Color3.fromRGB(255, 100, 100)
+            Button.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+        end
+        callback(enabled)
+    end)
+    
+    return Button
+end
+
+-- Criando os botões
+CreateToggle("Auto Farm", 50, function(state)
+    AutoFarm = state
+    if state then StartAutoFarm() end
+end)
+
+CreateToggle("Auto Rebirth", 90, function(state)
+    AutoRebirth = state
+    if state then StartAutoRebirth() end
+end)
+
+CreateToggle("Auto Sell", 130, function(state)
+    AutoSell = state
+    if state then StartAutoSell() end
+end)
+
+CreateToggle("Kill Aura", 170, function(state)
+    KillAura = state
+    if state then StartKillAura() end
+end)
+
+CreateToggle("Speed", 210, function(state)
+    SpeedEnabled = state
+    ToggleSpeed(state)
+end)
+
+CreateToggle("Fly", 250, function(state)
+    FlyEnabled = state
+    ToggleFly(state)
+end)
+
+CreateToggle("NoClip", 290, function(state)
+    NoClip = state
+    ToggleNoClip(state)
+end)
+
+-- Botão de fechar
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -35, 0, 5)
+CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextSize = 16
+CloseButton.Parent = MainFrame
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseButton
+
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Atualiza personagem quando respawna
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    Humanoid = char:WaitForChild("Humanoid")
+    HumanoidRootPart = char:WaitForChild("HumanoidRootPart")
+    
+    if SpeedEnabled then
+        ToggleSpeed(true)
+    end
+end)
+
+print("Muscle Legends Script carregado com sucesso!")
